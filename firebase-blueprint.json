@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "user": {
+      "title": "User Profile",
+      "description": "Details of the user's role and handle",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "name": {
+          "type": "string",
+          "description": "User display name"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "staff", "mod", "user"],
+          "description": "The user role"
+        }
+      },
+      "required": ["email", "name", "role"]
+    },
+    "order": {
+      "title": "Campaign Order",
+      "description": "An ordered campaign project placement",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "serviceId": {
+          "type": "string"
+        },
+        "serviceTitle": {
+          "type": "string"
+        },
+        "customerName": {
+          "type": "string"
+        },
+        "customerEmail": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "paidAmount": {
+          "type": "number"
+        },
+        "supplierCost": {
+          "type": "number"
+        },
+        "arbitrageProfit": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string"
+        },
+        "supplierStatus": {
+          "type": "string"
+        },
+        "supplierName": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "serviceId",
+        "serviceTitle",
+        "customerName",
+        "customerEmail",
+        "category",
+        "paidAmount",
+        "status",
+        "date"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profiles"
+    },
+    "/orders/{orderId}": {
+      "schema": "order",
+      "description": "Campaign orders"
+    }
+  }
+}

@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Fallback if email_verified is not set on request.auth.token
+    function isEmailVerified() {
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.email != null);
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "uylusjohnson@gmail.com"
+      );
+    }
+
+    function isStaff() {
+      return isSignedIn() && (
+        isAdmin() || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "staff"
+        )
+      );
+    }
+
+    function isMod() {
+      return isSignedIn() && (
+        isAdmin() || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "mod"
+        )
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation blueprints
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'name', 'role'])
+        && data.keys().size() == 3
+        && data.email is string && data.email.size() <= 100
+        && data.name is string && data.name.size() <= 100
+        && data.role is string && (
+          (data.role == 'admin' && data.email == 'uylusjohnson@gmail.com') ||
+          (data.role == 'staff') ||
+          (data.role == 'mod') ||
+          (data.role == 'user')
+        );
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['id', 'serviceId', 'serviceTitle', 'customerName', 'customerEmail', 'category', 'paidAmount', 'status', 'date'])
+        && data.id is string && data.id.size() <= 100
+        && data.serviceId is string && data.serviceId.size() <= 100
+        && data.serviceTitle is string && data.serviceTitle.size() <= 200
+        && data.customerName is string && data.customerName.size() <= 100
+        && data.customerEmail is string && data.customerEmail.size() <= 100
+        && data.category is string && data.category.size() <= 100
+        && data.paidAmount is number
+        && data.status is string && (data.status == 'Processing' || data.status == 'Active Campaign' || data.status == 'Completed')
+        && data.date is string && data.date.size() <= 100
+        && (!('supplierCost' in data) || data.supplierCost is number)
+        && (!('arbitrageProfit' in data) || data.arbitrageProfit is number)
+        && (!('supplierStatus' in data) || (data.supplierStatus is string && data.supplierStatus.size() <= 500))
+        && (!('supplierName' in data) || (data.supplierName is string && data.supplierName.size() <= 200));
+    }
+
+    // User collection match
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin() || isStaff() || isMod();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && (
+        incoming().role == 'user' || (incoming().role == 'admin' && incoming().email == 'uylusjohnson@gmail.com')
+      );
+      allow update: if (isOwner(userId) && isValidUser(incoming()) && incoming().role == existing().role) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Orders collection match
+    match /orders/{orderId} {
+      allow get: if isSignedIn() && (resource.data.customerEmail == request.auth.token.email || isAdmin() || isStaff() || isMod());
+      allow list: if isSignedIn() && (resource.data.customerEmail == request.auth.token.email || isAdmin() || isStaff() || isMod());
+      allow create: if isSignedIn() && isEmailVerified() && incoming().customerEmail == request.auth.token.email && isValidOrder(incoming()) && isValidId(orderId);
+      allow update: if isSignedIn() && isValidOrder(incoming()) && (
+        isAdmin() ||
+        isStaff() ||
+        isMod() ||
+        (
+          incoming().customerEmail == request.auth.token.email &&
+          incoming().customerEmail == existing().customerEmail &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'supplierStatus'])
+        )
+      );
+      allow delete: if isAdmin();
+    }
+  }
+}

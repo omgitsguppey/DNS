@@ -1,0 +1,6 @@
+{
+  "name": "Dollars not Sense",
+  "description": "An elegant, Apple-inspired digital concierge platform managing campaigns, playlist placements, and visual assets for creators, curators, and musicians.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
